@@ -1,0 +1,380 @@
+from __future__ import annotations
+from enum import Enum
+from typing import Generic, TypeVar, overload, Literal, Callable, Sequence, Type
+from itertools import permutations
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from math import sqrt
+
+Obj = TypeVar("Obj", "FreeVector", "FixedVector", "DirectionVector", "Point")
+
+@dataclass
+class Point:
+	x: int
+	y: int
+
+	def __add__(self, other: tuple[int, int] | Vector):
+		isvector = isinstance(other, Vector)
+		return Point(self.x + (other._x if isvector else other[0]), self.y + (other._y if isvector else other[1]))
+
+	
+
+	def __str__(self):
+		return f"({self.x}, {self.y})"
+
+
+class Vector(ABC):
+
+	@abstractmethod
+	def __init__(self) -> None:
+		pass
+
+	@abstractmethod
+	def __add__(self, b: Vector) -> Vector:
+		pass
+
+	@abstractmethod
+	def __mul__(self, c: int) -> Vector:
+		pass
+
+	@abstractmethod
+	def __str__(self) -> str:
+		pass
+
+	@property
+	@abstractmethod
+	def _x(self) -> int:
+		pass
+
+	@property
+	@abstractmethod
+	def _y(self) -> int:
+		pass
+
+	@abstractmethod
+	def squared_magnitude(self) -> int:
+		pass
+
+	@abstractmethod
+	def magnitude(self) -> float:
+		pass
+
+	def slope(self) -> float:
+		return self._y/ self._x
+
+
+class FreeVector(Vector):
+	def __init__(self, dx: int, dy: int):
+		self.dx = dx
+		self.dy = dy
+
+	@classmethod
+	def from_point(cls, p: Point):
+		return cls(p.x, p.y)
+
+	@classmethod
+	def from_fixed(cls, v: FixedVector):
+		return cls(v.x2 - v.x1, v.y2 - v.y1)
+
+	@classmethod
+	def from_delta(cls, dx: int, dy: int):
+		return cls(dx, dy)
+
+	def to_fixed(self, o: Point = Point(0, 0)):
+		return FixedVector.from_point_vector(o, self)
+
+	def to_tuple(self):
+		return (self.dx, self.dy)
+
+	def squared_magnitude(self) -> int:
+		return self.dx ** 2 + self.dy ** 2
+
+	def magnitude(self) -> float:
+		return sqrt(self.squared_magnitude())
+	
+	def __add__(self, other: Vector):
+		return FreeVector(self.dx + other._x, self.dy + other._y)
+
+	def __mul__(self, c: int):
+		return FreeVector(self.dx * c, self.dy * c)
+
+	def __str__(self):
+		return f"({self.dx}, {self.dy})"
+
+	def __repr__(self) -> str:
+		return self.__str__()
+
+	@property
+	def _x(self) -> int:
+		return self.dx
+
+	@property
+	def _y(self) -> int:
+		return self.dy
+
+
+class FixedVector(Vector):
+	def __init__(self, x1: int, y1: int, x2: int, y2: int, start_ref: Ref[Point] | None = None, end_ref: Ref[Point] | None = None) -> None:
+		self.x1 = x1
+		self.y1 = y1
+		self.x2 = x2
+		self.y2 = y2
+
+		self.start_ref = start_ref
+		self.end_ref = end_ref
+
+	@classmethod
+	def from_points(cls, a: Point, b: Point) -> FixedVector:
+		return cls(a.x, a.y, b.x, b.y)
+
+	@classmethod
+	def from_ref_points(cls, a: Ref[Point], b: Ref[Point]) -> Ref[FixedVector]:
+		return Ref(a.name + b.name, cls(a.obj.x, a.obj.y, b.obj.x, b.obj.y, a, b))
+
+	@classmethod
+	def from_point_vector(cls, a: Point | Ref[Point], d: FreeVector) -> FixedVector:
+		_a = Ref.unref(a)
+		return cls(_a.x, _a.y, _a.x + d.dx, _a.y + d.dy)
+
+	def to_free(self):
+		return FreeVector.from_fixed(self)
+
+	def to_tuple(self):
+		return (self.dx, self.dy)
+
+	def to_fixed(self, p: Point | Ref[Point]):
+		_p = Ref.unref(p)
+		return FixedVector(_p.x, _p.y, _p.x + self.dx, _p.y + self.dy)
+
+	def squared_magnitude(self) -> int:
+		return self.dx ** 2 + self.dy ** 2
+
+	def magnitude(self) -> float:
+		return sqrt(self.squared_magnitude())
+
+	def __add__(self, other: Vector):
+		return FixedVector(self.x1, self.y1, self.x2 + other._x,
+		                   self.y2 + other._y)
+
+	def __mul__(self, c: int) -> Vector:
+		return FixedVector(self.x1, self.y1, self.x1 + self.dx * c, self.y1 + self.dy * c)
+
+	def __str__(self):
+		return f"({self.x1}, {self.y1}) -> ({self.x2}, {self.y2})"
+
+	@property
+	def dx(self) -> int:
+		return self.x2 - self.x1
+
+	@property
+	def dy(self) -> int:
+		return self.y2 - self.y1
+
+	@property
+	def _x(self) -> int:
+		return self.dx
+
+	@property
+	def _y(self) -> int:
+		return self.dy
+
+	def start(self) -> Point:
+		return Point(self.x1, self.y1)
+
+	def end(self) -> Point:
+		return Point(self.x2, self.y2)
+
+class DirectionVector(Vector):
+	def __init__(self, origin: Point | Ref[Point], dx: int, dy: int):
+		self.origin = origin
+		self.dx = dx
+		self.dy = dy
+
+
+	@classmethod
+	def from_points(cls, a: Point, b: Point):
+		return cls(a, b.x - a.x, b.y - a.y)
+
+	@classmethod
+	def from_fixed(cls, v: FixedVector):
+		return cls(Point(v.x1, v.y1), v.x2 - v.x1, v.y2 - v.y1)
+
+	@classmethod
+	def from_point_vector(cls, a: Point | Ref[Point], d: FreeVector):
+		_a = Ref.unref(a)
+		return cls(_a, d.dx, d.dy)
+
+	@classmethod
+	def factory_from_point(cls, dx: int, dy: int) -> Callable[[Point | Ref[Point]], DirectionVector]:
+		return lambda p: cls(p, dx, dy)
+
+	def __call__(self, c: int) -> FixedVector:
+		p = Ref.unref(self.origin)
+		
+		return FixedVector(p.x, p.y, p.x + self.dx * c, p.y + self.dy * c, self.origin if isinstance(self.origin, Ref) else None)
+
+	def to_fixed(self, o: Point | None = None):
+		return FixedVector.from_point_vector(self.origin if o is None else o, self.to_free())
+
+	def to_free(self):
+		return FreeVector(self.dx, self.dy)
+
+	def to_callable(self) -> Callable[[Point], DirectionVector]:
+		return lambda p: DirectionVector(p, self.dx, self.dy)
+
+	def squared_magnitude(self) -> int:
+		return self.dx ** 2 + self.dy ** 2
+
+	def magnitude(self) -> float:
+		return sqrt(self.squared_magnitude())
+
+	def __str__(self) -> str:
+		return f"origin({self.origin.x}, {self.origin.y}); delta({self.dx}, {self.dy})"
+
+	def __mul__(self, c: int):
+		return DirectionVector(self.origin, self.dx * c, self.dy * c)
+
+	def __add__(self, b: Vector):
+		return DirectionVector(self.origin, self.dx + b._x, self.dy + b._y)
+		
+
+	@property
+	def _x(self) -> int:
+		return self.dx
+
+	@property
+	def _y(self) -> int:
+		return self.dy
+
+class Directions(Enum):
+	NORTH = 0, 1
+	NORTH_EAST = 1, 1
+	EAST = 1, 0
+	SOUTH_EAST = 1, -1
+	SOUTH = 0, -1
+	SOUTH_WEST = -1, -1
+	WEST = -1, 0
+	NORTH_WEST = -1, 1
+
+	
+	
+	def __init__(self, dx: int, dy: int) -> None:
+		self.dx = dx
+		self.dy = dy
+		self.vector = DirectionVector.factory_from_point(dx, dy)
+
+	def __call__(self, p: Point | Ref[Point] | None = None):
+		return FreeVector(self.dx, self.dy) if p is None else self.vector(p)
+
+	@staticmethod
+	def ALL() -> Sequence[Directions]:
+		return [Directions.NORTH, Directions.NORTH_EAST, Directions.EAST, Directions.SOUTH_EAST, Directions.SOUTH, Directions.SOUTH_WEST, Directions.WEST, Directions.NORTH_WEST]
+
+	@staticmethod
+	def CROSS() -> Sequence[Directions]:
+		return [Directions.NORTH, Directions.EAST, Directions.SOUTH, Directions.WEST]
+
+	@staticmethod
+	def get_rotations(dx: int, dy: int) -> Sequence[FreeVector]:
+		s: Sequence[FreeVector] = []
+		
+
+		for i in range(2):
+			if i == 1 and dx == 0: break
+			for j in range(2):
+				if j == 1 and dy == 0: break
+				x = dx * (1 - 2 * i)
+				y = dy * (1 - 2 * j)
+				
+				s.append(FreeVector(x, y))
+
+				if x != y:
+					s.append(FreeVector(y, x))
+
+
+		return s
+				
+				
+		
+
+	def rotate_left(self, n=1):
+		return self - n
+
+	def rotate_right(self, n=1):
+		return self + n
+
+	def opposite(self):
+		return self + 4
+
+	def __add__(self, n: int):
+		return Directions.ALL()[(Directions.ALL().index(self) + n) % len(Directions.ALL())]
+
+	def __sub__(self, n: int):
+		return self + (-n)
+
+	
+
+
+
+class Ref(Generic[Obj]):
+
+	# Functional references
+
+	@staticmethod
+	def set_name(obj: Obj, name: str):
+		setattr(obj, "name", name)
+
+	@staticmethod
+	def set_ref(obj: Obj, ref: Ref):
+		setattr(obj, "name", ref)
+
+	@staticmethod
+	def get_name(obj: Obj) -> str | None:
+		return getattr(obj, "_name", None)
+
+	@staticmethod
+	def get_ref(obj: Obj) -> str | None:
+		return getattr(obj, "_ref", None)
+
+	@staticmethod
+	def is_named(obj: Obj):
+		return hasattr(obj, "_name")
+
+	@staticmethod
+	def is_refed(obj: Obj):
+		return hasattr(obj, "_ref")
+
+	# Object-oriented references
+
+	@staticmethod
+	def unref(obj: Obj | Ref[Obj]):
+		return obj.obj if isinstance(obj, Ref) else obj
+
+	def __init__(self, name: str, obj: Obj) -> None:
+		Ref.set_name(obj, name)
+		Ref.set_ref(obj, self)
+
+		self.name = name
+		self.obj = obj
+
+	def __str__(self):
+		return self.name + " " + str(self.obj)
+
+class Plane:
+
+	def __init__(self) -> None:
+		self.points: list[Ref[Point]] = []
+		self.vectors: list[Ref[FixedVector]] = []
+
+	def push(self, ref: Ref[Point] | Ref[FixedVector]):
+		if isinstance(ref.obj, Point):
+			self.points.append(ref)
+		elif isinstance(ref.obj, FixedVector):
+			self.vectors.append(ref)
+
+	def get(self, name: str, type: Type[Vector] | Type[Point]):
+		arr = self.vectors if type == Vector else self.points
+
+		for ref in arr:
+			if ref.name == name:
+				return ref.obj
