@@ -28,20 +28,7 @@
 # print("Modificar atribut de classe")
 # Classe.b = 7
 # mostrar()
+from board import Board
+from plane import Bounds
 
-from plane import Directions, FixedVector, Point, Ref, Vector
-
-O = Ref("O", Point(0, 0))
-P = Ref("P", Point(2, 1))
-Q = Ref("Q", Point(3, 4))
-
-PQ = FixedVector.from_ref_points(P, Q)
-V = Ref("V", FixedVector(0, 0, 1, 1))
-
-print(O)
-print(PQ)
-print(V.obj.to_fixed(P))
-
-print()
-print(Directions.get_rotations(1, 1))
-
+board = Board(Bounds(0, 0, 8, 8))

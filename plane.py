@@ -1,26 +1,51 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Generic, TypeVar, overload, Literal, Callable, Sequence, Type
-from itertools import permutations
-from dataclasses import dataclass
+from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload
+from dataclasses import dataclass, fields
 from abc import ABC, abstractmethod
 from math import sqrt
 
 Obj = TypeVar("Obj", "FreeVector", "FixedVector", "DirectionVector", "Point")
+T = TypeVar('T')
+
 
 @dataclass
 class Point:
 	x: int
 	y: int
 
-	def __add__(self, other: tuple[int, int] | Vector):
+	def __add__(self, other: tuple[int, int] | Vector) -> Point:
 		isvector = isinstance(other, Vector)
 		return Point(self.x + (other._x if isvector else other[0]), self.y + (other._y if isvector else other[1]))
 
-	
-
 	def __str__(self):
 		return f"({self.x}, {self.y})"
+
+
+class Bounds:
+	def __init__(self, x1: int, y1: int, x2: int, y2: int):
+		self.x1 = x1
+		self.y1 = y1
+		self.x2 = x2
+		self.y2 = y2
+
+	def __call__(self, obj: Point) -> bool:
+		return self.is_within(obj)
+
+	def is_within(self, obj: Point) -> bool:
+		return self.x1 <= obj.x <= self.x2 and self.y1 <= obj.y <= self.y2
+
+	def get_points(self, all=True) -> list[Point]:
+		return [Point(self.x1, self.y1), Point(self.x2, self.y2)] + (
+			[Point(self.x1, self.y2), Point(self.x2, self.y1)] if all else [])
+
+	@property
+	def width(self):
+		return self.x2 - self.x1 + 1
+
+	@property
+	def height(self):
+		return self.y2 - self.y1 + 1
 
 
 class Vector(ABC):
@@ -36,6 +61,9 @@ class Vector(ABC):
 	@abstractmethod
 	def __mul__(self, c: int) -> Vector:
 		pass
+
+	def __eq__(self, other: Vector) -> bool:
+		return self._x == other._x and self._y == other._y
 
 	@abstractmethod
 	def __str__(self) -> str:
@@ -60,7 +88,7 @@ class Vector(ABC):
 		pass
 
 	def slope(self) -> float:
-		return self._y/ self._x
+		return self._y / self._x
 
 
 class FreeVector(Vector):
@@ -80,8 +108,8 @@ class FreeVector(Vector):
 	def from_delta(cls, dx: int, dy: int):
 		return cls(dx, dy)
 
-	def to_fixed(self, o: Point = Point(0, 0)):
-		return FixedVector.from_point_vector(o, self)
+	def to_fixed(self, o: Point | tuple[int, int] = Point(0, 0)):
+		return FixedVector.from_point_vector(o if isinstance(o, Point) else Point(*o), self)
 
 	def to_tuple(self):
 		return (self.dx, self.dy)
@@ -91,7 +119,7 @@ class FreeVector(Vector):
 
 	def magnitude(self) -> float:
 		return sqrt(self.squared_magnitude())
-	
+
 	def __add__(self, other: Vector):
 		return FreeVector(self.dx + other._x, self.dy + other._y)
 
@@ -114,7 +142,8 @@ class FreeVector(Vector):
 
 
 class FixedVector(Vector):
-	def __init__(self, x1: int, y1: int, x2: int, y2: int, start_ref: Ref[Point] | None = None, end_ref: Ref[Point] | None = None) -> None:
+	def __init__(self, x1: int, y1: int, x2: int, y2: int, start_ref: Ref[Point] | None = None,
+	             end_ref: Ref[Point] | None = None) -> None:
 		self.x1 = x1
 		self.y1 = y1
 		self.x2 = x2
@@ -134,7 +163,7 @@ class FixedVector(Vector):
 	@classmethod
 	def from_point_vector(cls, a: Point | Ref[Point], d: FreeVector) -> FixedVector:
 		_a = Ref.unref(a)
-		return cls(_a.x, _a.y, _a.x + d.dx, _a.y + d.dy)
+		return cls(_a.x, _a.y, _a.x + d.dx, _a.y + d.dy, a)
 
 	def to_free(self):
 		return FreeVector.from_fixed(self)
@@ -157,7 +186,7 @@ class FixedVector(Vector):
 		                   self.y2 + other._y)
 
 	def __mul__(self, c: int) -> Vector:
-		return FixedVector(self.x1, self.y1, self.x1 + self.dx * c, self.y1 + self.dy * c)
+		return FixedVector(self.x1, self.y1, self.x1 + self.dx * c, self.y1 + self.dy * c, self.start_ref)
 
 	def __str__(self):
 		return f"({self.x1}, {self.y1}) -> ({self.x2}, {self.y2})"
@@ -184,12 +213,12 @@ class FixedVector(Vector):
 	def end(self) -> Point:
 		return Point(self.x2, self.y2)
 
+
 class DirectionVector(Vector):
 	def __init__(self, origin: Point | Ref[Point], dx: int, dy: int):
 		self.origin = origin
 		self.dx = dx
 		self.dy = dy
-
 
 	@classmethod
 	def from_points(cls, a: Point, b: Point):
@@ -210,8 +239,9 @@ class DirectionVector(Vector):
 
 	def __call__(self, c: int) -> FixedVector:
 		p = Ref.unref(self.origin)
-		
-		return FixedVector(p.x, p.y, p.x + self.dx * c, p.y + self.dy * c, self.origin if isinstance(self.origin, Ref) else None)
+
+		return FixedVector(p.x, p.y, p.x + self.dx * c, p.y + self.dy * c,
+		                   self.origin if isinstance(self.origin, Ref) else None)
 
 	def to_fixed(self, o: Point | None = None):
 		return FixedVector.from_point_vector(self.origin if o is None else o, self.to_free())
@@ -236,7 +266,6 @@ class DirectionVector(Vector):
 
 	def __add__(self, b: Vector):
 		return DirectionVector(self.origin, self.dx + b._x, self.dy + b._y)
-		
 
 	@property
 	def _x(self) -> int:
@@ -245,6 +274,7 @@ class DirectionVector(Vector):
 	@property
 	def _y(self) -> int:
 		return self.dy
+
 
 class Directions(Enum):
 	NORTH = 0, 1
@@ -256,28 +286,27 @@ class Directions(Enum):
 	WEST = -1, 0
 	NORTH_WEST = -1, 1
 
-	
-	
 	def __init__(self, dx: int, dy: int) -> None:
 		self.dx = dx
 		self.dy = dy
-		self.vector = DirectionVector.factory_from_point(dx, dy)
-
-	def __call__(self, p: Point | Ref[Point] | None = None):
-		return FreeVector(self.dx, self.dy) if p is None else self.vector(p)
+		self.vector = FreeVector(dx, dy)
 
 	@staticmethod
-	def ALL() -> Sequence[Directions]:
-		return [Directions.NORTH, Directions.NORTH_EAST, Directions.EAST, Directions.SOUTH_EAST, Directions.SOUTH, Directions.SOUTH_WEST, Directions.WEST, Directions.NORTH_WEST]
+	def ALL() -> MutableSequence[Directions]:
+		return [Directions.NORTH, Directions.NORTH_EAST, Directions.EAST, Directions.SOUTH_EAST, Directions.SOUTH,
+		        Directions.SOUTH_WEST, Directions.WEST, Directions.NORTH_WEST]
 
 	@staticmethod
-	def CROSS() -> Sequence[Directions]:
+	def CROSS() -> MutableSequence[Directions]:
 		return [Directions.NORTH, Directions.EAST, Directions.SOUTH, Directions.WEST]
 
 	@staticmethod
-	def get_rotations(dx: int, dy: int) -> Sequence[FreeVector]:
-		s: Sequence[FreeVector] = []
-		
+	def D_CROSS() -> MutableSequence[Directions]:
+		return [Directions.NORTH_EAST, Directions.SOUTH_EAST, Directions.SOUTH_WEST, Directions.NORTH_WEST]
+
+	@staticmethod
+	def get_rotations(dx: int, dy: int) -> MutableSequence[FreeVector]:
+		s: MutableSequence[FreeVector] = []
 
 		for i in range(2):
 			if i == 1 and dx == 0: break
@@ -285,17 +314,13 @@ class Directions(Enum):
 				if j == 1 and dy == 0: break
 				x = dx * (1 - 2 * i)
 				y = dy * (1 - 2 * j)
-				
+
 				s.append(FreeVector(x, y))
 
 				if x != y:
 					s.append(FreeVector(y, x))
 
-
 		return s
-				
-				
-		
 
 	def rotate_left(self, n=1):
 		return self - n
@@ -311,9 +336,6 @@ class Directions(Enum):
 
 	def __sub__(self, n: int):
 		return self + (-n)
-
-	
-
 
 
 class Ref(Generic[Obj]):
@@ -360,6 +382,7 @@ class Ref(Generic[Obj]):
 	def __str__(self):
 		return self.name + " " + str(self.obj)
 
+
 class Plane:
 
 	def __init__(self) -> None:
@@ -372,9 +395,15 @@ class Plane:
 		elif isinstance(ref.obj, FixedVector):
 			self.vectors.append(ref)
 
-	def get(self, name: str, type: Type[Vector] | Type[Point]):
-		arr = self.vectors if type == Vector else self.points
+	def get(self, name: str, obj_type: Type[T]) -> T | None:
+		arr = self.vectors if obj_type == Vector else self.points
 
 		for ref in arr:
 			if ref.name == name:
 				return ref.obj
+
+		return None
+
+	def where(self, x: int, y: int) -> list[Ref[Point | FixedVector]]:
+		return [ref for ref in self.points if ref.obj.x == x and ref.obj.y == y] + [ref for ref in self.vectors if
+		                                                                            ref.obj.x1 == x and ref.obj.y1 == y]
