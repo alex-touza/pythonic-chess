@@ -89,6 +89,15 @@ class Coords(Point):
 
 class Piece:
 	def __init__(self, team: Team, kind: PieceKind, cell: Board.Cell):
+		self.team = team
+		self.kind = kind
+		self.cell: Board.Cell | None = None
+		self.place(cell)
+
+
+	def place(self, cell: Board.Cell):
+		self.cell = cell
+		cell.piece = self
 
 
 # class Piece(Cell):
@@ -123,6 +132,12 @@ class Board:
 
 		def __bool__(self):
 			return bool(self.piece)
+
+		def place(self, piece: Piece):
+			self.piece = piece
+			piece.cell = self
+
+
 
 	@staticmethod
 	def get_points(origin: Coords, v: FreeVector | Directions) -> list[Coords]:
