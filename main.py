@@ -32,3 +32,5 @@ from board import Board
 from plane import Bounds
 
 board = Board(Bounds(0, 0, 8, 8))
+
+print('a'+1)
