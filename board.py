@@ -7,8 +7,27 @@ from abc import ABC, abstractmethod
 
 
 class Team(Enum):
-	WHITE = 'Y'
-	BLACK = 'Z'
+	WHITE = ('Y', Directions.NORTH)
+	BLACK = ('Z', Directions.SOUTH)
+
+	def __init__(self, id: str, dir: Directions) -> None:
+		self.id = id
+		self.dir = dir
+		self.pieces = [
+			Piece(self, PieceKind.PAWN)
+		]
+		super().__init__()
+
+	@property
+	def opponent(self) -> Team:
+		if self is Team.WHITE:
+			return Team.BLACK
+		else:
+			return Team.WHITE
+
+	def __invert__(self) -> Team:
+		return self.opponent
+			
 
 
 class PieceKind(Enum):
@@ -19,15 +38,20 @@ class PieceKind(Enum):
 	QUEEN = ("reina", 'D', 9, ('♛', '♕'), Directions.ALL())
 	KING = ("rei", 'R', 10, ('♚', '♔'), [*Directions.get_rotations(1, 0), *Directions.get_rotations(1, 1)])
 
-	def __init__(self, name: str, short: str, values: int, icon: tuple[str, str],
-	             moves: Sequence[FreeVector | Directions], get_places: Callable[[Board, PieceKind,], str]
+	def __init__(self, name: str, short: str, values: int, icon: tuple[str, str], initial_pos: list[Coords],
+	             moves: Sequence[FreeVector | Directions], special: Callable[[Board, Board.Cell], list[Board.Cell | Callable[[Board, Board.Cell], None]]] | None = None
 	             ) -> None:
 		self._name = name
 		self.short = short
 		self.values = values
 		self.moves = moves
+		
 		self.icon = icon
+		
 		super().__init__()
+
+	@staticmethod
+	def special_pawn(board: Board, cell: Board.Cell):
 
 
 class Letters(Enum):
@@ -58,7 +82,7 @@ class Coords(Point):
 	def __init__(self, x: int, y: int):
 		pass
 
-	def __init__(self, a: Point | Letters | int | str, b: int = None):
+	def __init__(self, a: Point | Letters | int | str, b: int | None = None):
 		if isinstance(a, Point):
 			super().__init__(a.x, a.y)
 
@@ -68,6 +92,7 @@ class Coords(Point):
 			super().__init__(a.value, b)
 
 		elif isinstance(a, int):
+			assert b is not None
 			super().__init__(a, b)
 
 		else:
@@ -81,6 +106,9 @@ class Coords(Point):
 	def rank(self):
 		return self.y
 
+	def invert(self, board: Board) -> Coords:
+		return Coords(self.x, board.bounds.height - self.y - 1)
+
 	def __str__(self):
 		return str(self.file.name) + str(self.rank)
 
@@ -88,7 +116,9 @@ class Coords(Point):
 		return Coords(super().__add__(other))
 
 class Piece:
-	def __init__(self, team: Team, kind: PieceKind, cell: Board.Cell):
+	def __init__(self, team: Team, kind: PieceKind):
+		self.team = team
+		self.kind = kind
 
 
 # class Piece(Cell):
@@ -124,6 +154,9 @@ class Board:
 		def __bool__(self):
 			return bool(self.piece)
 
+		def get(self, vector: FreeVector):
+			return self.board.get_cell(self + vector)
+
 	@staticmethod
 	def get_points(origin: Coords, v: FreeVector | Directions) -> list[Coords]:
 		if isinstance(v, FreeVector):
@@ -141,19 +174,24 @@ class Board:
 		pass
 
 	@overload
-	def get_cell(self, c: Point | str):
+	def get_cell(self, p: Point | str):
 		pass
 
-	def get_cell(self, a: Point | str | int, b: int | None = None) -> Board.Cell:
+	def get_cell(self, a: Point | str | int, b: int | None = None) -> Board.Cell | None:
 		if isinstance(a, int):
-			return self.matrix[a][b]
+			assert isinstance(b, int)
+			try:
+				return self.matrix[b][a]
+			except IndexError:
+				return None
 
 		if isinstance(a, str):
 			a = Coords(a)
 
 		assert isinstance(a, Coords)
 
-		return self.matrix[a.y][a.x]
+		return self.get_cell(a.x, a.y)
+		
 
 	def __getitem__(self, c: str):
 		return self.get_cell(c)
