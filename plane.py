@@ -1,12 +1,29 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload
+from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload, Literal
 from dataclasses import dataclass, fields
 from abc import ABC, abstractmethod
 from math import sqrt
 
 Obj = TypeVar("Obj", "FreeVector", "FixedVector", "DirectionVector", "Point")
 T = TypeVar('T')
+
+
+class Unit(int):
+	def __new__(cls, value: Literal[0, 1, -1] | int):
+		if isinstance(value, cls):
+			return value
+
+		if value < -1:
+			value = -1
+
+		if value > 1:
+			value = 1
+
+		return super().__new__(cls, value)
+
+	def __neg__(self) -> Unit:
+		return Unit(super().__neg__())
 
 
 @dataclass
@@ -169,7 +186,7 @@ class FixedVector(Vector):
 		return FreeVector.from_fixed(self)
 
 	def to_tuple(self):
-		return (self.dx, self.dy)
+		return self.dx, self.dy
 
 	def to_fixed(self, p: Point | Ref[Point]):
 		_p = Ref.unref(p)
@@ -276,7 +293,7 @@ class DirectionVector(Vector):
 		return self.dy
 
 
-class Directions(Enum):
+class Direction(Enum):
 	NORTH = 0, 1
 	NORTH_EAST = 1, 1
 	EAST = 1, 0
@@ -286,32 +303,34 @@ class Directions(Enum):
 	WEST = -1, 0
 	NORTH_WEST = -1, 1
 
-	def __init__(self, dx: int, dy: int) -> None:
-		self.dx = dx
-		self.dy = dy
+	def __init__(self, dx: Literal[-1, 0, 1], dy: Literal[-1, 0, 1]) -> None:
+		self.dx = Unit(dx)
+		self.dy = Unit(dy)
 		self.vector = FreeVector(dx, dy)
 
 	@staticmethod
-	def ALL() -> MutableSequence[Directions]:
-		return [Directions.NORTH, Directions.NORTH_EAST, Directions.EAST, Directions.SOUTH_EAST, Directions.SOUTH,
-		        Directions.SOUTH_WEST, Directions.WEST, Directions.NORTH_WEST]
+	def ALL() -> MutableSequence[Direction]:
+		return [Direction.NORTH, Direction.NORTH_EAST, Direction.EAST, Direction.SOUTH_EAST, Direction.SOUTH,
+		        Direction.SOUTH_WEST, Direction.WEST, Direction.NORTH_WEST]
 
 	@staticmethod
-	def CROSS() -> MutableSequence[Directions]:
-		return [Directions.NORTH, Directions.EAST, Directions.SOUTH, Directions.WEST]
+	def CROSS() -> MutableSequence[Direction]:
+		return [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 
 	@staticmethod
-	def D_CROSS() -> MutableSequence[Directions]:
-		return [Directions.NORTH_EAST, Directions.SOUTH_EAST, Directions.SOUTH_WEST, Directions.NORTH_WEST]
+	def D_CROSS() -> MutableSequence[Direction]:
+		return [Direction.NORTH_EAST, Direction.SOUTH_EAST, Direction.SOUTH_WEST, Direction.NORTH_WEST]
 
 	@staticmethod
 	def get_rotations(dx: int, dy: int) -> MutableSequence[FreeVector]:
 		s: MutableSequence[FreeVector] = []
 
 		for i in range(2):
-			if i == 1 and dx == 0: break
+			if i == 1 and dx == 0:
+				break
 			for j in range(2):
-				if j == 1 and dy == 0: break
+				if j == 1 and dy == 0:
+					break
 				x = dx * (1 - 2 * i)
 				y = dy * (1 - 2 * j)
 
@@ -322,6 +341,22 @@ class Directions(Enum):
 
 		return s
 
+	@staticmethod
+	def from_index(ind: int):
+		return Direction.ALL()[ind % 8]
+
+	@staticmethod
+	def from_coords(x: Unit, y: Unit):
+		return [d for d in Direction.ALL() if d.dx == x and d.dy == y][0]
+
+	@staticmethod
+	def from_vector(v: Vector):
+		return [d for d in Direction.ALL() if d.vector == v][0]
+
+	@property
+	def index(self):
+		return Direction.ALL().index(self)
+
 	def rotate_left(self, n=1):
 		return self - n
 
@@ -331,8 +366,11 @@ class Directions(Enum):
 	def opposite(self):
 		return self + 4
 
+	def mirrored(self, east_west=False):
+		return self.from_index(4 - self.index)
+
 	def __add__(self, n: int):
-		return Directions.ALL()[(Directions.ALL().index(self) + n) % len(Directions.ALL())]
+		return self.from_index(self.index + n)
 
 	def __sub__(self, n: int):
 		return self + (-n)

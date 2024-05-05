@@ -28,9 +28,8 @@
 # print("Modificar atribut de classe")
 # Classe.b = 7
 # mostrar()
-from board import Board
-from plane import Bounds
+from enum import Enum
 
-board = Board(Bounds(0, 0, 8, 8))
 
-print('a'+1)
+while True:
+	print(input()[-2:])
