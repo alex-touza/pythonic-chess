@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from plane import Plane, Direction, FreeVector, Point, Ref, Bounds, Vector, Unit, FixedVector
 from enum import Enum
-from typing import Sequence, overload, Type, TypeVar, Callable, TYPE_CHECKING, Literal
+from typing import Sequence, overload, Type, TypeVar, Callable, TYPE_CHECKING, Literal, NoReturn
 from abc import ABC, abstractmethod
 
 
@@ -20,6 +20,7 @@ class RelativeFreeVector(FreeVector):
 			assert isinstance(a, Direction)
 			RelativeFreeVector(a.dx, a.dy)
 		else:
+			assert isinstance(a, int)
 			super().__init__(a, b)
 			self.dx = Unit(a)
 			self.dy = Unit(b)
@@ -27,15 +28,19 @@ class RelativeFreeVector(FreeVector):
 	def mirrored(self):
 		return RelativeFreeVector(-self.dx, -self.dy)
 
+class Action(ABC):
+	@abstractmethod
+	def __init__(self, piece: Piece):
+		pass
 
-class Move(FixedVector):
+
+
+class Move(Action):
 	def __init__(self, piece: Piece, origin: Board.Cell, dest: Board.Cell, capture: Piece | None):
 		self.piece = piece
 		self.origin = origin
 		self.dest = dest
 		self.capture = capture
-		
-		super().__init__()
 
 	@staticmethod
 	def from_notation(s: str, board: Board) -> Move:
@@ -67,9 +72,8 @@ class Move(FixedVector):
 
 		if len(s) == 2:
 			# TODO Check
-			raise TypeError
-
-
+			raise NotImplementedError
+		else:
 
 
 class Letter(Enum):
@@ -86,7 +90,7 @@ class Letter(Enum):
 class Piece:
 	class History:
 		def __init__(self):
-			self.moves: list[Coords] = []
+			self.moves: list[Move] = []
 			self.
 
 	def __init__(self, team: Team, kind: PieceKind, cell: Board.Cell):
@@ -100,9 +104,8 @@ class Piece:
 		self.cell = cell
 		cell.piece = self
 
-	"""NORTH is front"""
 
-	def get(self, d: Direction):
+	def get(self, v: RelativeFreeVector):
 		pass
 
 
@@ -188,8 +191,8 @@ class PieceKind(Enum):
 
 	def __init__(self, name: str, short: str, values: int, icon: tuple[str, str],
 	             initial_pos: Coords | str | list[Coords | str],
-	             moves: Sequence[FreeVector | Direction], special: Callable[[Board, Board.Cell], list[
-				Board.Cell | Callable[[Board, Board.Cell], None]]] | None = None
+	             moves: Sequence[FreeVector | Direction],
+	             special: Callable[[Board, Board.Cell], dict[Board.Cell, Callable[[Board], NoReturn]]] | None = None
 	             ) -> None:
 		self._name = name
 		self.short = short
@@ -197,9 +200,7 @@ class PieceKind(Enum):
 		self.icon = icon
 		self.initial_pos = [(p if isinstance(p, Coords) else Coords(p))
 		                    for p in (initial_pos if isinstance(initial_pos, list) else [initial_pos])]
-		self.moves = moves
-
-		super().__init__()
+		self.moves = [m if isinstance(m, Direction) else RelativeFreeVector(m.dx, m.dy) for m in moves]
 
 	def __call__(self, team: Team, cell: Board.Cell) -> Piece:
 		return Piece(team, self, cell)
@@ -211,7 +212,7 @@ class PieceKind(Enum):
 		return l[0] if len(l) else None
 
 	@staticmethod
-	def special_pawn(board: Board, cell: Board.Cell):
+	def special_pawn(board: Board, origin: Board.Cell):
 		attack = [RelativeFreeVector(1, 1), RelativeFreeVector(-1, 1)]
 
 		for d in attack:
@@ -240,12 +241,13 @@ class PieceKind(Enum):
 
 
 class Board:
-	class Cell(Coords):
+	class Cell(Ref[Coords]):
 		def __init__(self, board: Board, pos: Point):
 			self.board = board
 			self.piece: Piece | None = None
 
-			super().__init__(pos)
+			c = Coords(pos)
+			super().__init__(str(c), c)
 
 		def __bool__(self):
 			return bool(self.piece)
@@ -257,7 +259,7 @@ class Board:
 		def get(self, d: RelativeFreeVector):
 			v: FreeVector = d.mirrored() if (self and self.piece.team.mirrored) else d
 
-			return self.board.get_cell(self + v)
+			return self.board.get_cell(self.obj + v)
 
 	@staticmethod
 	def get_points(origin: Coords, v: FreeVector | Direction) -> list[Coords]:
@@ -294,5 +296,5 @@ class Board:
 
 		return self.get_cell(a.x, a.y)
 
-	def __getitem__(self, c: str):
+	def __getitem__(self, c: str) -> Board.Cell | None:
 		return self.get_cell(c)
