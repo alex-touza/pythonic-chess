@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from plane import Plane, Direction, FreeVector, Point, Ref, Bounds, Vector, Unit, FixedVector
+from plane import Plane, CardinalDirection, FreeVector, Point, Ref, Bounds, Vector, Unit, FixedVector, Direction
 from enum import Enum
 from typing import Sequence, overload, Type, TypeVar, Callable, TYPE_CHECKING, Literal, NoReturn
 from abc import ABC, abstractmethod
@@ -12,12 +12,12 @@ class RelativeFreeVector(FreeVector):
 		pass
 
 	@overload
-	def __init__(self, d: Direction):
+	def __init__(self, d: CardinalDirection):
 		pass
 
-	def __init__(self, a: Literal[-1, 0, 1] | Unit | Direction, b: Literal[-1, 0, 1] | Unit | None = None):
+	def __init__(self, a: Literal[-1, 0, 1] | Unit | CardinalDirection, b: Literal[-1, 0, 1] | Unit | None = None):
 		if b is None:
-			assert isinstance(a, Direction)
+			assert isinstance(a, CardinalDirection)
 			RelativeFreeVector(a.dx, a.dy)
 		else:
 			assert isinstance(a, int)
@@ -68,37 +68,32 @@ class Move(Action):
 		if not (isinstance(s, str) and 2 <= len(s) <= 5):
 			raise TypeError
 
-		dest = board[s[-2:]]
-
-		if len(s) == 2:
-			# TODO Check
+		if not len(s) == 4:
 			raise NotImplementedError
-		else:
+
+		dest = board[s[-2:]]
 
 
 class Letter(Enum):
-	a = 1
-	b = 2
-	c = 3
-	d = 4
-	e = 5
-	f = 6
-	g = 7
-	h = 8
+	a = 0
+	b = 1
+	c = 2
+	d = 3
+	e = 4
+	f = 5
+	g = 6
+	h = 7
 
 
 class Piece:
-	class History:
-		def __init__(self):
-			self.moves: list[Move] = []
-			self.
+
 
 	def __init__(self, team: Team, kind: PieceKind, cell: Board.Cell):
 		self.team = team
 		self.kind = kind
 		self.cell: Board.Cell | None = None
 		self.place(cell)
-		self.history: list[]
+		self.history: list[Move] = []
 
 	def place(self, cell: Board.Cell):
 		self.cell = cell
@@ -160,7 +155,7 @@ class Coords(Point):
 			super().__init__(a, b)
 
 		else:
-			self.__init__(Letter[a[0].lower()], int(a[1]))
+			self.__init__(Letter[a[0].lower()], int(a[1]) - 1)
 
 	@property
 	def file(self):
@@ -168,10 +163,10 @@ class Coords(Point):
 
 	@property
 	def rank(self):
-		return self.y
+		return self.y + 1
 
 	def invert(self, board: Board) -> Coords:
-		return Coords(self.x, board.bounds.height - self.y - 1)
+		return board.get_cell(board.bounds.get_mirrored_point(self, Direction.DIAGONAL)).obj
 
 	def __str__(self):
 		return str(self.file.name) + str(self.rank)
@@ -183,15 +178,15 @@ class Coords(Point):
 # TODO: Metaclasses?
 class PieceKind(Enum):
 	PAWN = ("peó", 'P', 1, ('♟', '♙'), ["a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"], [FreeVector(0, 1)])
-	KNIGHT = ("cavall", 'C', 3, ('♞', '♘'), ["b1", "g1"], Direction.get_rotations(1, 2))
-	BISHOP = ("alfil", 'A', 5, ('♝', '♗'), ["c1", "f1"], Direction.D_CROSS())
-	ROOK = ("torre", 'T', 5, ('♜', '♖'), ["a1", "h1"], Direction.CROSS())
-	QUEEN = ("reina", 'D', 9, ('♛', '♕'), "d1", Direction.ALL())
-	KING = ("rei", 'R', 10, ('♚', '♔'), "e1", [*Direction.get_rotations(1, 0), *Direction.get_rotations(1, 1)])
+	KNIGHT = ("cavall", 'C', 3, ('♞', '♘'), ["b1", "g1"], CardinalDirection.get_rotations(1, 2))
+	BISHOP = ("alfil", 'A', 5, ('♝', '♗'), ["c1", "f1"], CardinalDirection.D_CROSS())
+	ROOK = ("torre", 'T', 5, ('♜', '♖'), ["a1", "h1"], CardinalDirection.CROSS())
+	QUEEN = ("reina", 'D', 9, ('♛', '♕'), "d1", CardinalDirection.ALL())
+	KING = ("rei", 'R', 10, ('♚', '♔'), "e1", [*CardinalDirection.get_rotations(1, 0), *CardinalDirection.get_rotations(1, 1)])
 
 	def __init__(self, name: str, short: str, values: int, icon: tuple[str, str],
 	             initial_pos: Coords | str | list[Coords | str],
-	             moves: Sequence[FreeVector | Direction],
+	             moves: Sequence[FreeVector | CardinalDirection],
 	             special: Callable[[Board, Board.Cell], dict[Board.Cell, Callable[[Board], NoReturn]]] | None = None
 	             ) -> None:
 		self._name = name
@@ -200,7 +195,7 @@ class PieceKind(Enum):
 		self.icon = icon
 		self.initial_pos = [(p if isinstance(p, Coords) else Coords(p))
 		                    for p in (initial_pos if isinstance(initial_pos, list) else [initial_pos])]
-		self.moves = [m if isinstance(m, Direction) else RelativeFreeVector(m.dx, m.dy) for m in moves]
+		self.moves = [m if isinstance(m, CardinalDirection) else RelativeFreeVector(m.dx, m.dy) for m in moves]
 
 	def __call__(self, team: Team, cell: Board.Cell) -> Piece:
 		return Piece(team, self, cell)
@@ -213,9 +208,7 @@ class PieceKind(Enum):
 
 	@staticmethod
 	def special_pawn(board: Board, origin: Board.Cell):
-		attack = [RelativeFreeVector(1, 1), RelativeFreeVector(-1, 1)]
-
-		for d in attack:
+		pass
 
 
 # class Piece(Cell):
@@ -261,12 +254,15 @@ class Board:
 
 			return self.board.get_cell(self.obj + v)
 
+		def invert(self) -> Board.Cell:
+			return self.board.get_cell(self.board.bounds.get_mirrored_point(self.obj, Direction.DIAGONAL))
+
+		def __str__(self):
+			return self.obj.__str__()
+
 	@staticmethod
-	def get_points(origin: Coords, v: FreeVector | Direction) -> list[Coords]:
-		if isinstance(v, FreeVector):
-			return [origin + v]
-		else:
-			l = []
+	def get_points(origin: Coords, v: CardinalDirection) -> list[Coords]:
+		l = []
 
 	def __init__(self, bounds: Bounds) -> None:
 		self.matrix: list[list[Board.Cell]] = [[Board.Cell(self, Point(j, i)) for j in range(bounds.width)] for i in
@@ -278,21 +274,18 @@ class Board:
 		pass
 
 	@overload
-	def get_cell(self, p: Point | str):
+	def get_cell(self, p: Point | str) -> Board.Cell:
 		pass
 
-	def get_cell(self, a: Point | str | int, b: int | None = None) -> Board.Cell | None:
+	def get_cell(self, a: Point | str | int, b: int | None = None) -> Board.Cell:
 		if isinstance(a, int):
 			assert isinstance(b, int)
-			try:
-				return self.matrix[b][a]
-			except IndexError:
-				return None
+			return self.matrix[b][a]
 
 		if isinstance(a, str):
 			a = Coords(a)
 
-		assert isinstance(a, Coords)
+		assert isinstance(a, Point)
 
 		return self.get_cell(a.x, a.y)
 

@@ -30,6 +30,17 @@
 # mostrar()
 from enum import Enum
 
+from board import Board
+from plane import Bounds, Direction
 
-while True:
-	print(input()[-2:])
+bounds = Bounds(0, 0, 8, 8)
+print(bounds.height)
+board = Board(bounds)
+
+cell = board["a1"]
+
+print(cell)
+
+print(cell.obj.invert(board))
+
+print(board)

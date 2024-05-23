@@ -1,5 +1,5 @@
 from __future__ import annotations
-from enum import Enum
+from enum import Enum, auto
 from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload, Literal
 from dataclasses import dataclass, fields
 from abc import ABC, abstractmethod
@@ -7,6 +7,11 @@ from math import sqrt
 
 Obj = TypeVar("Obj", "FreeVector", "FixedVector", "DirectionVector", "Point")
 T = TypeVar('T')
+
+class Direction(Enum):
+	HORIZONTAL = auto()
+	VERTICAL = auto()
+	DIAGONAL = auto()
 
 
 class Unit(int):
@@ -40,6 +45,9 @@ class Point:
 
 
 class Bounds:
+	"""
+	Create a Bounds object with ranges [x1, x2) and [y1, y2)
+	"""
 	def __init__(self, x1: int, y1: int, x2: int, y2: int):
 		self.x1 = x1
 		self.y1 = y1
@@ -50,19 +58,34 @@ class Bounds:
 		return self.is_within(obj)
 
 	def is_within(self, obj: Point) -> bool:
-		return self.x1 <= obj.x <= self.x2 and self.y1 <= obj.y <= self.y2
+		return self.x1 <= obj.x < self.x2 and self.y1 <= obj.y < self.y2
 
 	def get_points(self, all=True) -> list[Point]:
 		return [Point(self.x1, self.y1), Point(self.x2, self.y2)] + (
 			[Point(self.x1, self.y2), Point(self.x2, self.y1)] if all else [])
 
+	def get_mirrored_point(self, p: Point, d: Direction) -> Point:
+		mirrored_x = self.x1 + self.x2 - 1 - p.x
+		mirrored_y = self.y1 + self.y2 - 1 - p.y
+
+		if d == Direction.HORIZONTAL:
+			# Reflect horizontally across the vertical center line
+			return Point(mirrored_x, p.y)
+		elif d == Direction.VERTICAL:
+			# Reflect vertically across the horizontal center line
+			return Point(p.x, mirrored_y)
+		elif d == Direction.DIAGONAL:
+			# Reflect diagonally across the center
+			return Point(mirrored_x, mirrored_y)
+
+
 	@property
 	def width(self):
-		return self.x2 - self.x1 + 1
+		return self.x2 - self.x1
 
 	@property
 	def height(self):
-		return self.y2 - self.y1 + 1
+		return self.y2 - self.y1
 
 
 class Vector(ABC):
@@ -293,7 +316,7 @@ class DirectionVector(Vector):
 		return self.dy
 
 
-class Direction(Enum):
+class CardinalDirection(Enum):
 	NORTH = 0, 1
 	NORTH_EAST = 1, 1
 	EAST = 1, 0
@@ -309,17 +332,17 @@ class Direction(Enum):
 		self.vector = FreeVector(dx, dy)
 
 	@staticmethod
-	def ALL() -> MutableSequence[Direction]:
-		return [Direction.NORTH, Direction.NORTH_EAST, Direction.EAST, Direction.SOUTH_EAST, Direction.SOUTH,
-		        Direction.SOUTH_WEST, Direction.WEST, Direction.NORTH_WEST]
+	def ALL() -> MutableSequence[CardinalDirection]:
+		return [CardinalDirection.NORTH, CardinalDirection.NORTH_EAST, CardinalDirection.EAST, CardinalDirection.SOUTH_EAST, CardinalDirection.SOUTH,
+		        CardinalDirection.SOUTH_WEST, CardinalDirection.WEST, CardinalDirection.NORTH_WEST]
 
 	@staticmethod
-	def CROSS() -> MutableSequence[Direction]:
-		return [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
+	def CROSS() -> MutableSequence[CardinalDirection]:
+		return [CardinalDirection.NORTH, CardinalDirection.EAST, CardinalDirection.SOUTH, CardinalDirection.WEST]
 
 	@staticmethod
-	def D_CROSS() -> MutableSequence[Direction]:
-		return [Direction.NORTH_EAST, Direction.SOUTH_EAST, Direction.SOUTH_WEST, Direction.NORTH_WEST]
+	def D_CROSS() -> MutableSequence[CardinalDirection]:
+		return [CardinalDirection.NORTH_EAST, CardinalDirection.SOUTH_EAST, CardinalDirection.SOUTH_WEST, CardinalDirection.NORTH_WEST]
 
 	@staticmethod
 	def get_rotations(dx: int, dy: int) -> MutableSequence[FreeVector]:
@@ -343,19 +366,19 @@ class Direction(Enum):
 
 	@staticmethod
 	def from_index(ind: int):
-		return Direction.ALL()[ind % 8]
+		return CardinalDirection.ALL()[ind % 8]
 
 	@staticmethod
 	def from_coords(x: Unit, y: Unit):
-		return [d for d in Direction.ALL() if d.dx == x and d.dy == y][0]
+		return [d for d in CardinalDirection.ALL() if d.dx == x and d.dy == y][0]
 
 	@staticmethod
 	def from_vector(v: Vector):
-		return [d for d in Direction.ALL() if d.vector == v][0]
+		return [d for d in CardinalDirection.ALL() if d.vector == v][0]
 
 	@property
 	def index(self):
-		return Direction.ALL().index(self)
+		return CardinalDirection.ALL().index(self)
 
 	def rotate_left(self, n=1):
 		return self - n
