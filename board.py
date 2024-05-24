@@ -166,7 +166,7 @@ class Coords(Point):
 		return self.y + 1
 
 	def invert(self, board: Board) -> Coords:
-		return board.get_cell(board.bounds.get_mirrored_point(self, Direction.DIAGONAL)).obj
+		return board.get_cell(board.bounds.get_mirrored_point(self, Direction.VERTICAL)).obj
 
 	def __str__(self):
 		return str(self.file.name) + str(self.rank)
@@ -255,7 +255,7 @@ class Board:
 			return self.board.get_cell(self.obj + v)
 
 		def invert(self) -> Board.Cell:
-			return self.board.get_cell(self.board.bounds.get_mirrored_point(self.obj, Direction.DIAGONAL))
+			return self.board.get_cell(self.board.bounds.get_mirrored_point(self.obj, Direction.VERTICAL))
 
 		def __str__(self):
 			return self.obj.__str__()

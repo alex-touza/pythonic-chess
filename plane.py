@@ -1,11 +1,11 @@
 from __future__ import annotations
 from enum import Enum, auto
-from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload, Literal
+from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload, Literal, Union
 from dataclasses import dataclass, fields
 from abc import ABC, abstractmethod
 from math import sqrt
 
-Obj = TypeVar("Obj", "FreeVector", "FixedVector", "DirectionVector", "Point")
+Obj = TypeVar("Obj", bound=Union['Vector', 'Point'], contravariant=True)
 T = TypeVar('T')
 
 class Direction(Enum):
@@ -247,9 +247,11 @@ class FixedVector(Vector):
 	def _y(self) -> int:
 		return self.dy
 
+	@property
 	def start(self) -> Point:
 		return Point(self.x1, self.y1)
 
+	@property
 	def end(self) -> Point:
 		return Point(self.x2, self.y2)
 
