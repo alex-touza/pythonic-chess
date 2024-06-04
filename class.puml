@@ -1,0 +1,130 @@
+@startuml
+skinparam linetype ortho
+set separator ::
+
+namespace plane {
+ class Unit
+
+ abstract class Vector
+
+
+ class FixedVector extends Vector
+
+ class FreeVector extends Vector
+
+ class Plane
+
+ class Point
+
+ class Bounds
+
+ class Plane
+
+ enum Direction
+
+ enum CardinalDirection
+
+ class Ref<Obj extends Vector \n or Point>
+
+ class "Ref<Point>" as Ref_point extends Ref
+
+
+ CardinalDirection *-- FreeVector
+ CardinalDirection "2" *-- Unit
+ Plane o-- Point : 0..*
+ Plane o-- Vector : 0..*
+ Ref_point *-- Point
+ FixedVector "2" *-- Ref_point
+}
+
+namespace board {
+ enum Letter {
+a
+b
+c
+d
+e
+f
+g
+h
+
+}
+
+ enum PieceKind
+
+ class Options
+
+ enum Team {
+WHITE
+BLACK
+opponent() -> Team
+__invert__() -> Team
+}
+
+ class Coords
+
+ class Board
+
+ class Piece {
+team: Team
+kind: PieceKind
+cell: Board.Cell
+history: list[Move]
+board: Board
+__init__(team: Team, kind: PieceKind, cell: Board.Cell)
+place(cell: Board.Cell) -> None
+move(move: Move) -> None
+get_moves() -> list[Board.Cell]
+}
+
+ class "Ref<Coords>" as Ref_coords 
+
+
+ class Cell extends Ref_coords
+
+
+ class RelativeFreeVector {
+dx: int
+dy: int
+__init__(self, dx: int, dy: int)
+__init__(self, d: CardinalDirection)
+__init__(self, a: int | CardinalDirection, b: int | None)
+mirrored() -> RelativeFreeVector
+}
+
+ class Move {
+piece: Piece
+origin: Board.Cell
+dest: Board.Cell
+capture: Piece
+__init__(self, piece: Piece, origin: Board.Cell, \n dest: Board.Cell, capture: Piece | None)
+{static} from_notation(s: str, board: Board)
+__str__() -> str
+}
+
+ Coords --|> Point
+ RelativeFreeVector --|> FreeVector
+ Move --|> FixedVector
+ Ref_coords --|> Ref
+
+ Piece o-- Move : 0..*
+ Piece o-- Cell : 0..1
+ Piece *-- Team
+ Piece *-- PieceKind
+
+
+
+ Board +-- Cell
+ Cell *-- Board
+ Coords --* Ref_coords
+
+ Board *-- Bounds
+ Board o-- Cell : w*h
+
+ PieceKind +-- Options
+ PieceKind o-- Coords : 1..*
+ PieceKind o-- RelativeFreeVector : 0..*
+ PieceKind o-- CardinalDirection : 0..*
+
+}
+@enduml

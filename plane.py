@@ -5,7 +5,7 @@ from dataclasses import dataclass, fields
 from abc import ABC, abstractmethod
 from math import sqrt
 
-Obj = TypeVar("Obj", bound=Union['Vector', 'Point'], contravariant=True)
+Obj = TypeVar("Obj", bound=Union['Vector', 'Point'], covariant=True)
 T = TypeVar('T')
 
 class Direction(Enum):
@@ -203,7 +203,7 @@ class FixedVector(Vector):
 	@classmethod
 	def from_point_vector(cls, a: Point | Ref[Point], d: FreeVector) -> FixedVector:
 		_a = Ref.unref(a)
-		return cls(_a.x, _a.y, _a.x + d.dx, _a.y + d.dy, a)
+		return cls(_a.x, _a.y, _a.x + d.dx, _a.y + d.dy, a if isinstance(a, Ref) else None)
 
 	def to_free(self):
 		return FreeVector.from_fixed(self)
@@ -255,7 +255,7 @@ class FixedVector(Vector):
 	def end(self) -> Point:
 		return Point(self.x2, self.y2)
 
-
+"""
 class DirectionVector(Vector):
 	def __init__(self, origin: Point | Ref[Point], dx: int, dy: int):
 		self.origin = origin
@@ -316,7 +316,7 @@ class DirectionVector(Vector):
 	@property
 	def _y(self) -> int:
 		return self.dy
-
+"""
 
 class CardinalDirection(Enum):
 	NORTH = 0, 1
@@ -405,39 +405,39 @@ class Ref(Generic[Obj]):
 
 	# Functional references
 
-	@staticmethod
-	def set_name(obj: Obj, name: str):
-		setattr(obj, "name", name)
-
-	@staticmethod
-	def set_ref(obj: Obj, ref: Ref):
-		setattr(obj, "name", ref)
-
-	@staticmethod
-	def get_name(obj: Obj) -> str | None:
-		return getattr(obj, "_name", None)
-
-	@staticmethod
-	def get_ref(obj: Obj) -> str | None:
-		return getattr(obj, "_ref", None)
-
-	@staticmethod
-	def is_named(obj: Obj):
-		return hasattr(obj, "_name")
-
-	@staticmethod
-	def is_refed(obj: Obj):
-		return hasattr(obj, "_ref")
+	# @staticmethod
+	# def set_name(obj: Obj, name: str):
+	# 	setattr(obj, "name", name)
+# 
+	# @staticmethod
+	# def set_ref(obj: Obj, ref: Ref):
+	# 	setattr(obj, "name", ref)
+# 
+	# @staticmethod
+	# def get_name(obj: Obj) -> str | None:
+	# 	return getattr(obj, "_name", None)
+# 
+	# @staticmethod
+	# def get_ref(obj: Obj) -> str | None:
+	# 	return getattr(obj, "_ref", None)
+# 
+	# @staticmethod
+	# def is_named(obj: Obj):
+	# 	return hasattr(obj, "_name")
+# 
+	# @staticmethod
+	# def is_refed(obj: Obj):
+	# 	return hasattr(obj, "_ref")
 
 	# Object-oriented references
 
 	@staticmethod
-	def unref(obj: Obj | Ref[Obj]):
+	def unref(obj: Obj | Ref[Obj]) -> Obj:
 		return obj.obj if isinstance(obj, Ref) else obj
 
 	def __init__(self, name: str, obj: Obj) -> None:
-		Ref.set_name(obj, name)
-		Ref.set_ref(obj, self)
+		setattr(obj, "name", name)
+		setattr(obj, "name", self)
 
 		self.name = name
 		self.obj = obj
@@ -445,7 +445,7 @@ class Ref(Generic[Obj]):
 	def __str__(self):
 		return self.name + " " + str(self.obj)
 
-
+"""
 class Plane:
 
 	def __init__(self) -> None:
@@ -470,3 +470,4 @@ class Plane:
 	def where(self, x: int, y: int) -> list[Ref[Point | FixedVector]]:
 		return [ref for ref in self.points if ref.obj.x == x and ref.obj.y == y] + [ref for ref in self.vectors if
 		                                                                            ref.obj.x1 == x and ref.obj.y1 == y]
+"""
