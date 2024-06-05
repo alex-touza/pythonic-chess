@@ -1,6 +1,9 @@
 @startuml
+skinparam dpi 500
 skinparam linetype ortho
 set separator ::
+
+hide members
 
 namespace plane {
     class Unit
@@ -8,9 +11,9 @@ namespace plane {
     abstract class Vector
 
 
-    class FixedVector extends Vector
+    class FixedVector
 
-    class FreeVector extends Vector
+    class FreeVector
 
     class Plane
 
@@ -28,6 +31,8 @@ namespace plane {
 
     class "Ref<Point>" as Ref_point extends Ref
 
+	FixedVector --|> Vector
+	FreeVector --|> Vector
 
     CardinalDirection *-- FreeVector
     CardinalDirection "2" *-- Unit
@@ -98,8 +103,24 @@ namespace board {
 	      capture: Piece
 	      __init__(self, piece: Piece, origin: Board.Cell, \n dest: Board.Cell, capture: Piece | None)
 	      {static} from_notation(s: str, board: Board)
+	      {static} query(s: str, team: Team) -> list[Move]
 	      __str__() -> str
 	 }
+
+	 struct Partial {
+		kind: PieceKind | None
+		initial_file: Letter | None
+		initial_rank: int | None
+		is_capture: bool | None
+		final_file: Letter | None
+		final_rank: int | None
+
+		check_nones(self, from_name: str) -> bool
+		initial_might_eq(self, file: Letter, rank: int, kind: PieceKind) -> bool
+		final_might_eq(self, file: Letter, rank: int, capture: bool) -> bool
+	 }
+
+	 Partial --+ Move
 
      Coords --|> Point
      RelativeFreeVector --|> FreeVector
@@ -126,4 +147,19 @@ namespace board {
      PieceKind o-- CardinalDirection : 0..*
 
 }
+namespace lib {
+	class Menu
+
+}
+namespace game {
+	class Game
+
+	Board --* Game
+	Team --* Game
+	Move --o Game : 0..*
+
+	Game --|> Menu
+}
+
+
 @enduml
