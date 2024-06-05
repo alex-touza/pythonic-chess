@@ -112,20 +112,34 @@ class Game:
 				moves = None
 				try:
 					cell = self.board[res[1:]]
-					assert cell.piece
-					moves = Move.get_moves(cell.piece)
+					if cell.piece:
+						moves = Move.get_moves(cell.piece)
+					else:
+						moves = Move.query(res[1:], self.turn)
 				except:
 					print(Colors.vermell("Error en cercar els moviments."))
 					continue
 				clear()
-				self.show([m.dest for m in moves])
-
-				if len(moves) > 0:
-					print(Colors.cian("Moviments possibles des de ") + res[1:] + Colors.cian(':'))
-					for m in moves:
-						print(f'\t{m}')
+				if cell.piece:
+					
+	
+					if len(moves) > 0:
+						self.show([m.dest for m in moves])
+						print(Colors.cian("Moviments possibles des de ") + res[1:] + Colors.cian(':'))
+						for m in moves:
+							print(f'\t{m}')
+					else:
+						self.show()
+						print(Colors.groc("Cap moviment possible des de ") + res[1:])
 				else:
-					print(Colors.groc("Cap moviment possible des de ") + res[1:])
+					if moves is None or len(moves) == 0:
+							self.show()
+							print(Colors.groc("Cap moviment possible fins ") + res[1:])
+					else:
+						self.show([m.origin for m in moves])
+						print(Colors.cian("Moviments possibles fins ") + res[1:] + Colors.cian(':'))
+						for m in moves:
+							print(f'\t{m}')
 
 			else:
 				move = None
