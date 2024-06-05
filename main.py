@@ -1,15 +1,15 @@
 from enum import Enum
 from os.path import isfile
-from typing import Sequence, reveal_type
+from typing import Sequence
 
 from colorama import init
 from colorama.ansi import set_title
 
 from board import *
 from game import Game, gameHelp
-from lib.forms import pausar, clear
-from lib.menu import Menu
-from lib.text import Colors, Estils
+from forms import pausar, clear
+from menu import Menu
+from text import Colors, Estils
 from plane import Bounds, Direction
 
 
@@ -63,6 +63,7 @@ class GameMenu(Menu):
 				game.turn = Team.WHITE if game.turn is Team.BLACK else Team.BLACK
 
 				m()
+				clear()
 
 				game.show(_title=p)
 
@@ -72,12 +73,12 @@ class GameMenu(Menu):
 		input()
 
 
-
-
-"""menu = GameMenu()
+menu = GameMenu()
 
 while menu():
 	pass
+
+"""
 
 
 def f(l: Sequence[int | str]):

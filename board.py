@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 
-from lib.text import Estils, Colors
+from text import Estils, Colors
 
 from plane import CardinalDirection, FreeVector, Point, Ref, Bounds, Vector, FixedVector, Direction
 from enum import Enum

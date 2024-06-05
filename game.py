@@ -3,8 +3,8 @@ from typing import overload
 
 import board
 from board import *
-from lib.forms import Opcio, clear, title, pausar
-from lib.menu import Menu
+from forms import Opcio, clear, title, pausar
+from menu import Menu
 from random import choice
 
 BOUNDS = Bounds(0, 0, 8, 8)
@@ -16,7 +16,7 @@ def gameHelp():
 	print("\tun moviment en notació algebraica (e.g. 'Pa1a2', 'b3', 'Th6')")
 	print(f"\t{Estils.cursiva('?[cel·la]')} per veure moviments possibles d'una peça (e.g. '?a1')")
 	print(f"\t{Estils.cursiva('$')} per fer un moviment aleatori")
-	print(f"\t{Estils.cursiva('^D')} per aturar el joc")
+	print(f"\t{Estils.cursiva('exit')} per aturar el joc")
 	print(f"\t{Estils.cursiva('h')} o {Estils.cursiva('help')} per mostrar aquesta ajuda")
 	Colors.reset()
 
@@ -67,7 +67,7 @@ class Game:
 				
 			if res == 'h' or res == 'help':
 				gameHelp()
-			elif res == '\x04':  # ctrl-d
+			elif res == 'exit':  # ctrl-d
 				i = 1
 				while isfile(f"joc{i}.pych"):
 					i += 1
@@ -133,6 +133,8 @@ class Game:
 					move = Move.from_notation(res, self.turn)
 				except SyntaxError:
 					print(Colors.vermell("Sintaxi invàlida"))
+				except TypeError:
+					print(Colors.vermell("Entrada invàlida"))
 				except Move.NotationBaseError as e:
 					if isinstance(e, Move.AmbiguousMoveError):
 						print(Colors.groc("Moviment ambigu"))
