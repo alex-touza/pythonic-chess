@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum, auto
-from typing import Generic, TypeVar, Callable, MutableSequence, Type, overload, Literal, Union
-from dataclasses import dataclass, fields
+from typing import Generic, TypeVar, MutableSequence, Literal, Union
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from math import sqrt
 
